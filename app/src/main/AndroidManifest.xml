@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      Custom permission guarding the converter service: only apps signed with the
+      same certificate (AnyFile + this companion share the committed debug key) can
+      bind it without a user prompt. signature-level keeps random apps out.
+    -->
+    <permission
+        android:name="com.nachtalb.anyfiledjvu.permission.BIND_CONVERTER"
+        android:protectionLevel="signature" />
+
+    <application
+        android:allowBackup="false"
+        android:label="AnyFile DjVu"
+        android:hasCode="true"
+        android:extractNativeLibs="true">
+
+        <!--
+          The app's ONLY component. Headless: no Activity, no LAUNCHER intent-filter,
+          so it never appears in the launcher drawer. AnyFile binds this directly by
+          explicit component/package name.
+        -->
+        <service
+            android:name=".DjvuDecodeService"
+            android:exported="true"
+            android:permission="com.nachtalb.anyfiledjvu.permission.BIND_CONVERTER">
+            <intent-filter>
+                <action android:name="com.nachtalb.anyfiledjvu.CONVERT" />
+            </intent-filter>
+        </service>
+
+    </application>
+
+</manifest>

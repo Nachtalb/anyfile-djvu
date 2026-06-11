@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+.gradle/
+build/
+*.iml
+.idea/
+local.properties
+.cxx/
+.kotlin/
+captures/
+*.log
+build_*.log
+build_*.err
