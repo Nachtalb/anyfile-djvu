@@ -23,6 +23,17 @@ val buildTimestamp: String = (project.findProperty("buildTimestamp") as String?)
     ?: DateTimeFormatter.ISO_INSTANT
         .format(Instant.now().truncatedTo(ChronoUnit.SECONDS))
 
+// Semantic version — the single source of truth for this app's releases (#187). Bump this per
+// release; CI cuts a tagged `vX.Y.Z` GitHub release from it (see .github/workflows/build.yml), and
+// AnyFile's companion-apps section compares installed-vs-latest by semver ordering to drive its
+// Install / Update buttons. `versionCode` is DERIVED from the semver so the OS install/update
+// ordering matches: MAJOR*10000 + MINOR*100 + PATCH (each component < 100). A tag push verifies the
+// tag matches this value (CI guard), so the build.gradle version and the git tag can't drift.
+val appVersionName = "0.1.0"
+val appVersionCode: Int = appVersionName.split(".").let { (maj, min, pat) ->
+    maj.toInt() * 10000 + min.toInt() * 100 + pat.toInt()
+}
+
 android {
     namespace = "com.nachtalb.anyfiledjvu"
     compileSdk = 36
@@ -31,8 +42,8 @@ android {
         applicationId = "com.nachtalb.anyfiledjvu"
         minSdk = 28
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

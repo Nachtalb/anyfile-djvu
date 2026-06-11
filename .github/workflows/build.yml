@@ -3,6 +3,7 @@ name: Build APK
 on:
   push:
     branches: [main, master]
+    tags: ['v*']
   pull_request:
     branches: [main, master]
 
@@ -97,24 +98,34 @@ jobs:
           path: dist/anyfile-djvu-release.apk
           retention-days: 30
 
-      # The rolling "latest" release is published only on pushes to main/master.
-      - name: Publish rolling release (direct APK download)
-        if: >-
-          ${{ github.event_name == 'push' &&
-              (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') &&
-              !(startsWith(github.event.head_commit.message, 'test:') ||
-                startsWith(github.event.head_commit.message, 'test(')) }}
+      # On a v* tag push, verify the tag matches the version in build.gradle.kts so the git tag
+      # and the APK's versionName can't drift. Fails the build loudly on mismatch.
+      - name: Verify tag matches build.gradle version
+        if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          GRADLE_VERSION=$(grep -oP 'val appVersionName = "\K[0-9]+\.[0-9]+\.[0-9]+' app/build.gradle.kts)
+          echo "tag=$TAG_VERSION gradle=$GRADLE_VERSION"
+          if [ "$TAG_VERSION" != "$GRADLE_VERSION" ]; then
+            echo "::error::tag v$TAG_VERSION does not match appVersionName $GRADLE_VERSION in app/build.gradle.kts"
+            exit 1
+          fi
+
+      # Publish a real, tagged semantic-version release (#187) — only on a v* tag push. The release
+      # is NOT a prerelease, so GitHub's /releases/latest endpoint (which AnyFile's companion-apps
+      # update check reads) returns it. Plain pushes to main only build + upload the PR-style
+      # artifact above; they do not publish a release.
+      - name: Publish tagged release (direct APK download)
+        if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: latest
-          name: Latest build (${{ github.run_number }})
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
           body: |
-            Automated release build from `${{ github.sha }}`.
-            build-commit-epoch: `${{ env.COMMIT_EPOCH }}`
-            build-sha-short: `${{ env.GIT_SHA_SHORT }}`
-            Headless DjVu→PDF decode companion for AnyFile.
-            Self-signed (debug keystore) — installs and updates directly.
+            AnyFile DjVu companion ${{ github.ref_name }} — headless DjVu→PDF decode service.
+            Built from `${{ github.sha }}` (build-sha-short: `${{ env.GIT_SHA_SHORT }}`).
+            Self-signed (debug keystore, same cert as AnyFile) — installs and updates directly.
             Download the APK below.
-          prerelease: true
+          prerelease: false
           files: |
             dist/anyfile-djvu-release.apk
