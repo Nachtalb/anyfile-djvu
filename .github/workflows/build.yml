@@ -20,9 +20,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     # docs:/chore: commits change nothing buildable — skip the whole job. (PRs have
-    # no head_commit, so the guard is a no-op and the job still runs.)
+    # no head_commit, so the guard is a no-op and the job still runs.) EXCEPTION: a v* tag
+    # push must ALWAYS build — a release is often cut on a "chore: bump version" commit, and
+    # skipping it here would silently skip publishing the release (#194).
     if: >-
-      ${{ !(
+      ${{ startsWith(github.ref, 'refs/tags/v') || !(
         startsWith(github.event.head_commit.message, 'docs:') ||
         startsWith(github.event.head_commit.message, 'docs(') ||
         startsWith(github.event.head_commit.message, 'chore:') ||
