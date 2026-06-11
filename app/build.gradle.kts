@@ -1,7 +1,27 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+import java.time.Instant
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+
 plugins {
     alias(libs.plugins.android.application)
 }
+
+// Build identity stamped into BuildConfig (mirrors the main AnyFile app). The CI
+// release runner passes -PgitSha / -PbuildTimestamp; local builds fall back to a
+// live git call. Used for the About/version line and (later, Phase 4) the headless
+// update check.
+val gitShaValue: String = (project.findProperty("gitSha") as String?)?.takeIf { it.isNotBlank() }
+    ?: runCatching {
+        providers.exec {
+            commandLine("git", "rev-parse", "--short", "HEAD")
+            workingDir = rootDir
+        }.standardOutput.asText.get().trim()
+    }.getOrNull()?.takeIf { it.isNotEmpty() } ?: "dev"
+
+val buildTimestamp: String = (project.findProperty("buildTimestamp") as String?)?.takeIf { it.isNotBlank() }
+    ?: DateTimeFormatter.ISO_INSTANT
+        .format(Instant.now().truncatedTo(ChronoUnit.SECONDS))
 
 android {
     namespace = "com.nachtalb.anyfiledjvu"
@@ -15,6 +35,14 @@ android {
         versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "GIT_SHA", "\"$gitShaValue\"")
+        buildConfigField("String", "BUILD_TIMESTAMP", "\"$buildTimestamp\"")
+
+        // Pin the NDK to the version verified during the Phase 0 cross-compile spike.
+        // CI installs this exact version via sdkmanager so the toolchain (and the
+        // c++14/register + no-libjpeg build behaviour) is identical to local.
+        ndkVersion = "28.2.13676358"
 
         ndk {
             // Release targets real devices (arm only). The emulator x86_64 slice is

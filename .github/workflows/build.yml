@@ -1,0 +1,120 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: write
+
+# This is a PUBLIC repo (GPL). It deliberately uses GitHub-hosted runners, NOT the
+# self-hosted wsl-docker runner the private AnyFile app uses: a non-ephemeral
+# self-hosted runner on a public repo would let fork PRs run arbitrary code on the
+# host. ubuntu-latest is slower (cold caches, the DjVuLibre NDK build is a few
+# minutes) but safe and zero-infra. Revisit only if build time becomes a problem.
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # docs:/chore: commits change nothing buildable — skip the whole job. (PRs have
+    # no head_commit, so the guard is a no-op and the job still runs.)
+    if: >-
+      ${{ !(
+        startsWith(github.event.head_commit.message, 'docs:') ||
+        startsWith(github.event.head_commit.message, 'docs(') ||
+        startsWith(github.event.head_commit.message, 'chore:') ||
+        startsWith(github.event.head_commit.message, 'chore(')
+      ) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '9.5.1'
+
+      # Install the exact NDK pinned in app/build.gradle.kts (ndkVersion). AGP would
+      # auto-download it, but installing it explicitly via the preinstalled SDK on the
+      # hosted image makes the version requirement obvious and the failure clear if it
+      # ever drifts.
+      - name: Install pinned NDK + CMake
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "ndk;28.2.13676358" "cmake;3.22.1" > /dev/null
+
+      # Builds the R8-less release APK (no minify — there's no UI/reflection surface to
+      # shrink; the payload is the native .so). Self-signed with the committed debug
+      # keystore, same cert as AnyFile, so AnyFile can bind the signature-guarded
+      # service and the APK installs/updates on-device. Skipped for test: commits.
+      - name: Build Release APK
+        if: >-
+          ${{ !(
+            startsWith(github.event.head_commit.message, 'test:') ||
+            startsWith(github.event.head_commit.message, 'test(')
+          ) }}
+        run: |
+          GIT_SHA_SHORT=$(git rev-parse --short HEAD)
+          COMMIT_EPOCH=$(git log -1 --format=%ct)
+          BUILD_TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          echo "COMMIT_EPOCH=$COMMIT_EPOCH" >> "$GITHUB_ENV"
+          echo "GIT_SHA_SHORT=$GIT_SHA_SHORT" >> "$GITHUB_ENV"
+          gradle :app:assembleRelease \
+            -PgitSha="$GIT_SHA_SHORT" \
+            -PbuildTimestamp="$BUILD_TS"
+
+      - name: Rename APK
+        if: >-
+          ${{ !(
+            startsWith(github.event.head_commit.message, 'test:') ||
+            startsWith(github.event.head_commit.message, 'test(')
+          ) }}
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/release/*.apk dist/anyfile-djvu-release.apk
+
+      # Uploaded on every run (PRs included) — grab it from the run's Artifacts section
+      # to test a PR build. No release is published for PRs.
+      - name: Upload Release APK artifact
+        if: >-
+          ${{ !(
+            startsWith(github.event.head_commit.message, 'test:') ||
+            startsWith(github.event.head_commit.message, 'test(')
+          ) }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: anyfile-djvu-release-${{ github.run_number }}
+          path: dist/anyfile-djvu-release.apk
+          retention-days: 30
+
+      # The rolling "latest" release is published only on pushes to main/master.
+      - name: Publish rolling release (direct APK download)
+        if: >-
+          ${{ github.event_name == 'push' &&
+              (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') &&
+              !(startsWith(github.event.head_commit.message, 'test:') ||
+                startsWith(github.event.head_commit.message, 'test(')) }}
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: latest
+          name: Latest build (${{ github.run_number }})
+          body: |
+            Automated release build from `${{ github.sha }}`.
+            build-commit-epoch: `${{ env.COMMIT_EPOCH }}`
+            build-sha-short: `${{ env.GIT_SHA_SHORT }}`
+            Headless DjVu→PDF decode companion for AnyFile.
+            Self-signed (debug keystore) — installs and updates directly.
+            Download the APK below.
+          prerelease: true
+          files: |
+            dist/anyfile-djvu-release.apk
