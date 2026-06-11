@@ -29,7 +29,7 @@ val buildTimestamp: String = (project.findProperty("buildTimestamp") as String?)
 // Install / Update buttons. `versionCode` is DERIVED from the semver so the OS install/update
 // ordering matches: MAJOR*10000 + MINOR*100 + PATCH (each component < 100). A tag push verifies the
 // tag matches this value (CI guard), so the build.gradle version and the git tag can't drift.
-val appVersionName = "0.2.0"
+val appVersionName = "0.3.0"
 val appVersionCode: Int = appVersionName.split(".").let { (maj, min, pat) ->
     maj.toInt() * 10000 + min.toInt() * 100 + pat.toInt()
 }
