@@ -50,7 +50,10 @@ class DjvuDecodeService : Service() {
             }
 
             try {
-                PdfAssembler.convertToFile(inFile.absolutePath, dpi, outFile)
+                PdfAssembler.convertToFile(inFile.absolutePath, dpi, outFile) { done, total ->
+                    // oneway callback; a dead/slow client must never break the conversion.
+                    runCatching { callback.onProgress(done, total) }
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "conversion failed", e)
                 callback.onError(DjvuError.DECODE, e.message ?: "decode failed")

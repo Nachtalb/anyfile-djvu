@@ -30,7 +30,7 @@ internal object PdfAssembler {
      * @throws IOException on decode or write failure.
      */
     @Throws(IOException::class)
-    fun convert(inputPath: String, targetDpi: Int, out: OutputStream) {
+    fun convert(inputPath: String, targetDpi: Int, out: OutputStream, onProgress: ((done: Int, total: Int) -> Unit)? = null) {
         val pageCountHolder = IntArray(1)
         val handle = DjvuNative.nativeOpen(inputPath, pageCountHolder)
         if (handle == 0L) throw IOException("DjVu open failed: $inputPath")
@@ -48,6 +48,8 @@ internal object PdfAssembler {
                 val pixels = DjvuNative.nativeRenderPage(handle, i, targetDpi, dims)
                 if (pixels == null) {
                     Log.w(TAG, "page $i render failed; skipping")
+                    // Still count it toward progress so the bar reaches 100% even with skips.
+                    onProgress?.invoke(i + 1, pageCount)
                     continue
                 }
                 val w = dims[0]
@@ -76,6 +78,8 @@ internal object PdfAssembler {
                     pdf.finishPage(page)
                     bitmap?.recycle()
                 }
+                // Report after each page is rendered into the document (1-based done count).
+                onProgress?.invoke(i + 1, pageCount)
             }
             pdf.writeTo(out)
         } finally {
@@ -86,7 +90,7 @@ internal object PdfAssembler {
 
     /** Convenience: convert to a temp file and return it. */
     @Throws(IOException::class)
-    fun convertToFile(inputPath: String, targetDpi: Int, outFile: File) {
-        outFile.outputStream().use { convert(inputPath, targetDpi, it) }
+    fun convertToFile(inputPath: String, targetDpi: Int, outFile: File, onProgress: ((done: Int, total: Int) -> Unit)? = null) {
+        outFile.outputStream().use { convert(inputPath, targetDpi, it, onProgress) }
     }
 }
