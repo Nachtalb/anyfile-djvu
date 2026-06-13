@@ -21,7 +21,7 @@ app, bundling DjVuLibre, is correctly licensed **GPL-2.0-or-later** — see `LIC
 ## Architecture
 
 ```
-AnyFile  ──bind IDjvuConverter (AIDL)──►  DjvuDecodeService (headless)
+AnyFile  ──bind IConverter (neutral AIDL)──►  DjvuDecodeService (headless)
          ◄─── onResult(pdfFd) ──────────    └─ DjVuLibre (vendored, GPL) via JNI
                                               └─ render pages → PdfDocument (framework)
 ```
