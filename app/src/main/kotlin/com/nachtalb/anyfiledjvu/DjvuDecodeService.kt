@@ -13,6 +13,7 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Headless DjVu -> PDF conversion service. The app's ONLY component — no Activity,
@@ -27,6 +28,14 @@ import java.util.concurrent.Executors
 class DjvuDecodeService : Service() {
 
     private val executor = Executors.newSingleThreadExecutor()
+    private val inFlight = AtomicInteger(0)
+
+    override fun onCreate() {
+        super.onCreate()
+        // A previous process killed mid-conversion (onDestroy below) skipped its finally; nothing
+        // runs yet in this fresh process, so every leftover temp file is stale.
+        deleteTempFiles()
+    }
 
     private val binder = object : IConverter.Stub() {
         override fun convert(
@@ -41,7 +50,14 @@ class DjvuDecodeService : Service() {
             // "targetDpi" is the one option this raster engine honours; absent/out-of-range -> 150.
             val requested = options?.getInt(KEY_TARGET_DPI, 150) ?: 150
             val dpi = if (requested in 36..600) requested else 150
-            executor.execute { runConversion(input, dpi, callback) }
+            inFlight.incrementAndGet()
+            executor.execute {
+                try {
+                    runConversion(input, dpi, callback)
+                } finally {
+                    inFlight.decrementAndGet()
+                }
+            }
         }
     }
 
@@ -81,9 +97,21 @@ class DjvuDecodeService : Service() {
         }
     }
 
+    private fun deleteTempFiles() {
+        cacheDir.listFiles { f -> f.name.startsWith("in_") || f.name.startsWith("out_") }?.forEach { it.delete() }
+    }
+
     override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onDestroy() {
+        // Destroyed with no client bound = nobody waits for the result (AnyFile unbinds when the user
+        // leaves the viewer). The page workers sit in native decode calls, so end the process instead
+        // of decoding the rest of the book for nothing.
+        if (inFlight.get() > 0) {
+            Log.i(TAG, "unbound mid-conversion — stopping")
+            deleteTempFiles()
+            android.os.Process.killProcess(android.os.Process.myPid())
+        }
         executor.shutdown()
         super.onDestroy()
     }
