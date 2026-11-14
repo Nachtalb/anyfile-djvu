@@ -36,7 +36,7 @@ val appVersionCode: Int = appVersionName.split(".").let { (maj, min, pat) ->
 
 android {
     namespace = "com.nachtalb.anyfiledjvu"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.nachtalb.anyfiledjvu"
