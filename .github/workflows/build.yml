@@ -54,7 +54,7 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            "ndk;28.2.13676358" "cmake;3.22.1" > /dev/null
+            "ndk;30.0.16248370" "cmake;4.1.2" > /dev/null
 
       # Builds the R8-less release APK (no minify — there's no UI/reflection surface to
       # shrink; the payload is the native .so). Self-signed with the committed debug
