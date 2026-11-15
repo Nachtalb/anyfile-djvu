@@ -33,10 +33,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           java-version: '17'
           distribution: 'temurin'
@@ -44,7 +44,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
-          gradle-version: '9.5.1'
+          gradle-version: '9.9.1'
 
       # Install the exact NDK pinned in app/build.gradle.kts (ndkVersion). AGP would
       # auto-download it, but installing it explicitly via the preinstalled SDK on the
@@ -54,7 +54,7 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            "ndk;28.2.13676358" "cmake;3.22.1" > /dev/null
+            "ndk;30.0.16248370" "cmake;4.1.2" > /dev/null
 
       # Builds the R8-less release APK (no minify — there's no UI/reflection surface to
       # shrink; the payload is the native .so). Self-signed with the committed debug

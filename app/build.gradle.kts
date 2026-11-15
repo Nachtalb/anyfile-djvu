@@ -36,7 +36,7 @@ val appVersionCode: Int = appVersionName.split(".").let { (maj, min, pat) ->
 
 android {
     namespace = "com.nachtalb.anyfiledjvu"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.nachtalb.anyfiledjvu"
@@ -53,7 +53,7 @@ android {
         // Pin the NDK to the version verified during the Phase 0 cross-compile spike.
         // CI installs this exact version via sdkmanager so the toolchain (and the
         // c++14/register + no-libjpeg build behaviour) is identical to local.
-        ndkVersion = "28.2.13676358"
+        ndkVersion = "30.0.16248370"
 
         ndk {
             // Release targets real devices (arm only). The emulator x86_64 slice is
@@ -96,7 +96,7 @@ android {
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
+            version = "4.1.2"
         }
     }
 
@@ -123,9 +123,9 @@ android {
 }
 
 dependencies {
-    implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.core:core-ktx:1.19.1")
 
-    androidTestImplementation("androidx.test:runner:1.6.2")
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("junit:junit:4.13.2")
 }
